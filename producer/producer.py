@@ -10,7 +10,6 @@ import os
 # IP del PC dove gira Kafka
 KAFKA_SERVER = '192.168.178.166:29092'
 
-# Legge il numero di thread passati come argomento
 if len(sys.argv) < 2:
     print("Uso: python producer.py <NUM_THREADS>")
     sys.exit(1)
@@ -18,17 +17,32 @@ if len(sys.argv) < 2:
 NUM_THREADS = int(sys.argv[1])
 print(f"Avvio di {NUM_THREADS} thread...")
 
-# Evento per fermare i thread
 stop_event = threading.Event()
 
-# Contatori globali
-messages_sent = 0
-messages_failed = 0
-counter_lock = threading.Lock()
+
+class SafeCounter:
+    def __init__(self):
+        self.sent = 0
+        self.failed = 0
+        self._lock = threading.Lock()
+
+    def inc_sent(self):
+        with self._lock:
+            self.sent += 1
+
+    def inc_failed(self):
+        with self._lock:
+            self.failed += 1
+
+    def snapshot(self):
+        with self._lock:
+            return self.sent, self.failed
+
+
+counter = SafeCounter()
 
 
 def create_producer():
-    """Crea un producer Kafka. Se Kafka non è disponibile, riprova finché non riesce."""
     while True:
         try:
             producer = KafkaProducer(
@@ -43,8 +57,6 @@ def create_producer():
 
 
 def send_temperature(thread_id):
-    global messages_sent, messages_failed
-
     producer = create_producer()
 
     while not stop_event.is_set():
@@ -59,18 +71,17 @@ def send_temperature(thread_id):
             producer.send("temperature", data)
             producer.flush()
 
-            with counter_lock:
-                messages_sent += 1
-
+            counter.inc_sent()
             print(f"[Thread {thread_id}] Inviato: {data}")
 
         except Exception as e:
-            with counter_lock:
-                messages_failed += 1
-
+            counter.inc_failed()
             print(f"[Thread {thread_id}] Errore invio: {e}. Riconnessione...")
             producer.close()
             producer = create_producer()
+
+        sent, failed = counter.snapshot()
+        print(f"[Thread {thread_id}] sent: {sent}, failed: {failed}")
 
         time.sleep(1)
 
@@ -86,11 +97,9 @@ for i in range(NUM_THREADS):
 
 print(f"Avviati {NUM_THREADS} thread. PID: {os.getpid()}")
 
-# Timer di 10 minuti
 try:
-    stop_event.wait(timeout=600)  # 600 secondi = 10 minuti
+    stop_event.wait(timeout=600)
     stop_event.set()
-
     print("\nTempo scaduto: fermo tutti i thread...")
     for t in threads:
         t.join()
@@ -101,8 +110,9 @@ except KeyboardInterrupt:
     for t in threads:
         t.join()
 
-# STAMPA STATISTICHE FINALI
+# Statistiche
+sent, failed = counter.snapshot()
 print("\n=== STATISTICHE ===")
-print(f"Messaggi inviati: {messages_sent}")
-print(f"Messaggi falliti: {messages_failed}")
+print(f"Messaggi inviati: {sent}")
+print(f"Messaggi falliti: {failed}")
 print("===================")
