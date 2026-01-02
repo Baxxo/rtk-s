@@ -1,6 +1,6 @@
-8a083bf681c0e5d90b60824ca7691d03c3bff5c054272dd472df8f5c79144fbd *openwrt-23.05.3-bcm27xx-bcm2710-rpi-3-ext4-factory.img.gz
-861f74a2bd56c12d6683699271463f26d6fd9bad3492873ec5332442c5dd33aa *openwrt-23.05.3-bcm27xx-bcm2710-rpi-3-ext4-sysupgrade.img.gz
-2c4c5e04c67268071548b9e06203ae14f3791e8939efe379e8804fdf3f991511 *openwrt-23.05.3-bcm27xx-bcm2710-rpi-3-squashfs-factory.img.gz
-3d18fa3a61160b4ab9294c870f5d740877629082a23ad23e04c0e3c5e760ebc7 *openwrt-23.05.3-bcm27xx-bcm2710-rpi-3-squashfs-sysupgrade.img.gz
+6cc2224822c419d8e39c794d914338a283e5df2a107bc55ce07042248930a06c *openwrt-23.05.3-bcm27xx-bcm2710-rpi-3-ext4-factory.img.gz
+9f51258964d30b236d70b36e08d85bd6b47f9f051f938bde27b3ca6515fd3829 *openwrt-23.05.3-bcm27xx-bcm2710-rpi-3-ext4-sysupgrade.img.gz
+588ba959d70fa3215cfd2b1f6e441ab380e36550462638596036fbe5d4143f7d *openwrt-23.05.3-bcm27xx-bcm2710-rpi-3-squashfs-factory.img.gz
+51d3fad938de5167b00fd1a86c2106ed1c38060c097e9cc18df589ed508442e4 *openwrt-23.05.3-bcm27xx-bcm2710-rpi-3-squashfs-sysupgrade.img.gz
 8d6c7eb08f6af2d87ce597928acb3f26c7fcad58bd3c599b1e890f23280dee9c *openwrt-23.05.3-bcm27xx-bcm2710-rpi-3.manifest
-effb907c9ca468bf9148d0e8916b642b1525c7d0dc0415187429b0e490b3ecf1 *profiles.json
+19efcc17d22797692c8838cd7a78e4d497b343440b941c580b596600a920117d *profiles.json
