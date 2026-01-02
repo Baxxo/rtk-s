@@ -5,7 +5,7 @@ RUN  apk add --update asciidoc bash bc binutils bzip2 cdrkit coreutils\
                       diffutils findutils flex g++ gawk gcc gettext git grep\
                       intltool libxslt linux-headers make ncurses-dev patch\
                       perl tar unzip gzip util-linux wget zlib-dev xz rsync\
-                      su-exec python3 python2-dev \
+                      su-exec\
      && rm -rf /var/cache/apk/*
 
 ADD etc/entrypoint.sh /usr/local/bin/
