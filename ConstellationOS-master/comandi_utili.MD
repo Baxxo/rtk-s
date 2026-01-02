@@ -10,6 +10,8 @@
         --> option device 'eth0'
         --> option ipaddr 'IP DA ASSEGNARE'
 
+    reload_config
+
 ***Comando per monitor risorse:***
 
     htop
