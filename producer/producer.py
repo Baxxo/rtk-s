@@ -1,5 +1,5 @@
 from datetime import datetime
-from kafka import KafkaProducer
+from kafka import KafkaProducer  # type: ignore
 import json
 import time
 import random
@@ -47,7 +47,12 @@ def create_producer():
         try:
             producer = KafkaProducer(
                 bootstrap_servers=[KAFKA_SERVER],
-                value_serializer=lambda v: json.dumps(v).encode('utf-8')
+                value_serializer=lambda v: json.dumps(v).encode(  # type: ignore
+                    'utf-8'),
+                linger_ms=100,        # aspetta max 100ms prima di inviare batch
+                batch_size=16384,     # 16 KB per batch
+                max_request_size=1048576,  # max 1 MB per richiesta
+                acks=1                # meno overhead
             )
             print("Producer Kafka connesso.")
             return producer
@@ -56,44 +61,42 @@ def create_producer():
             time.sleep(1)
 
 
-def send_temperature(thread_id):
+def send_temperature(thread_id: int):
     producer = create_producer()
+    # count = 0
 
     while not stop_event.is_set():
         temperatura = 20 + random.randint(0, 10)
         data = {
-            "temperatura": temperatura,
+            "temperatura": str(temperatura),
             "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%f"),
-            "thread_id": thread_id
+            "thread_id": str(thread_id)
         }
 
         try:
-            producer.send("temperature", data)
-            producer.flush()
-
+            producer.send("temperature", data) # type: ignore
             counter.inc_sent()
-            print(f"[Thread {thread_id}] Inviato: {data}")
-
-        except Exception as e:
+        except Exception:
             counter.inc_failed()
-            print(f"[Thread {thread_id}] Errore invio: {e}. Riconnessione...")
-            producer.close()
+            producer.close() # type: ignore
             producer = create_producer()
 
-        sent, failed = counter.snapshot()
-        print(f"[Thread {thread_id}] sent: {sent}, failed: {failed}")
+        # count += 1
+        # if count % 10 == 0:  # stampa ogni 10 messaggi
+        #     sent, failed = counter.snapshot()
+        #     print(f"[Thread {thread_id}] sent: {sent}, failed: {failed}")
 
-        time.sleep(1)
+        time.sleep(0.01)
 
-    producer.close()
-    print(f"[Thread {thread_id}] Terminato.")
+    producer.close() # type: ignore
 
 
-threads = []
+
+threads: list[threading.Thread] = []
 for i in range(NUM_THREADS):
     t = threading.Thread(target=send_temperature, args=(i+1,), daemon=True)
     t.start()
-    threads.append(t)
+    threads.append(t)  # type: ignore
 
 print(f"Avviati {NUM_THREADS} thread. PID: {os.getpid()}")
 
