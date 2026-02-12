@@ -1,6 +1,9 @@
+9a02fe6fa1a8c4a23f788bc2f2b25a84bf645d7127dd5c3d4687c1c3b3ad2346 *.DS_Store
 6cc2224822c419d8e39c794d914338a283e5df2a107bc55ce07042248930a06c *openwrt-23.05.3-bcm27xx-bcm2710-rpi-3-ext4-factory.img.gz
-9f51258964d30b236d70b36e08d85bd6b47f9f051f938bde27b3ca6515fd3829 *openwrt-23.05.3-bcm27xx-bcm2710-rpi-3-ext4-sysupgrade.img.gz
+1d977fd604316a4441eb762f956b7ad0596a816cc43deab089140eb669219841 *openwrt-23.05.3-bcm27xx-bcm2710-rpi-3-ext4-sysupgrade.img.gz
 588ba959d70fa3215cfd2b1f6e441ab380e36550462638596036fbe5d4143f7d *openwrt-23.05.3-bcm27xx-bcm2710-rpi-3-squashfs-factory.img.gz
-51d3fad938de5167b00fd1a86c2106ed1c38060c097e9cc18df589ed508442e4 *openwrt-23.05.3-bcm27xx-bcm2710-rpi-3-squashfs-sysupgrade.img.gz
+57317e31ceedf38db688e1fa88cff91012cab40ef700ef64554bdaaa30ec6199 *openwrt-23.05.3-bcm27xx-bcm2710-rpi-3-squashfs-sysupgrade.img.gz
 8d6c7eb08f6af2d87ce597928acb3f26c7fcad58bd3c599b1e890f23280dee9c *openwrt-23.05.3-bcm27xx-bcm2710-rpi-3.manifest
-19efcc17d22797692c8838cd7a78e4d497b343440b941c580b596600a920117d *profiles.json
+6b24ff5a243ced234cf53ef66c866ecd56c78ce2b95416f683c800bfe7708317 *openwrt-25.12.0-rc1-bcm27xx-bcm2710-rpi-3.manifest
+e9838d530278c36057c8b88d288f8a0eadb7b062d237ed86aa8291276fff71c8 *openwrt-25.12.0-rc3-bcm27xx-bcm2710-rpi-3.manifest
+d4aa09576a1e40b20c2f1a5167bce82fb207d1d7ae1ffff1075d699fb7cfbcfb *profiles.json
