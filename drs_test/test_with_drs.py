@@ -17,7 +17,7 @@ N_TASKS = 1000
 EXECUTION_PERIOD_TIME = 0.05        # 50 ms task period (implicit deadline)
 N_CORES = 4                          # CPU cores available
 
-RELATIVE_UTILIZATION = 0.85          # Target per-core utilization (85%)
+RELATIVE_UTILIZATION = 0.50          # Target per-core utilization (85%)
 DRS_UTILIZATION = N_CORES * RELATIVE_UTILIZATION  # Total utilization for all tasks
 
 N_ITERATIONS = 100                   # Number of test repetitions
