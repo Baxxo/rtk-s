@@ -17,7 +17,8 @@ from drs import drs # type: ignore
 # ==========================================================
 
 NUMBER_OF_TASKS: int = 35
-TOTAL_CPU_UTILIZATION: float = 0.78 * 4
+NUMBER_OF_CORE:int = 4
+TOTAL_CPU_UTILIZATION: float = 0.6 * NUMBER_OF_CORE
 SIMULATION_DURATION_SECONDS: int = 60
 LOG_PROGRESS_EVERY_N_JOBS: int = 50
 
@@ -134,13 +135,20 @@ def main() -> None:
 
     logging.info("=== TEST START ===")
 
+    worst_case: List[float] = drs(
+        n=NUMBER_OF_TASKS,
+        sumu=random.uniform(0.7, 0.9) * NUMBER_OF_CORE,
+    )
+
+
     utilization_vector: List[float] = drs(
         n=NUMBER_OF_TASKS,
         sumu=TOTAL_CPU_UTILIZATION,
+        upper_bounds=worst_case
     )
 
     period_list_seconds: List[float] = [
-        random.uniform(0.05, 0.15)
+        random.uniform(0.01, 1)
         for _ in range(NUMBER_OF_TASKS)
     ]
 
