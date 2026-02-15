@@ -11,15 +11,19 @@ from multiprocessing.queues import Queue
 from drs import drs  # type: ignore
 
 
-# ------------------------
-# CONFIGURAZIONE
-# ------------------------
+# ==========================================================
+# CONFIGURAZIONE ESPERIMENTO
+# ==========================================================
 
-N_TASKS: int = 4
-TOTAL_UTIL: float = 0.9
-SIMULATION_TIME: int = 10
-LOG_EVERY_N_JOBS: int = 50
+NUMBER_OF_TASKS: int = 4               # Numero totale di task periodici
+TOTAL_CPU_UTILIZATION: float = 0.50       # Utilizzazione totale desiderata (somma C_i / T_i)
+SIMULATION_DURATION_SECONDS: int = 60 * 1     # Durata dell’esperimento
+LOG_PROGRESS_EVERY_N_JOBS: int = 50       # Frequenza log di avanzamento
 
+
+# ==========================================================
+# CONFIGURAZIONE LOGGING
+# ==========================================================
 
 logging.basicConfig(
     level=logging.INFO,
@@ -28,158 +32,252 @@ logging.basicConfig(
 )
 
 
-# ------------------------
-# STRUTTURA RISULTATI
-# ------------------------
+# ==========================================================
+# STRUTTURA DATI RISULTATO TASK
+# ==========================================================
 
-class TaskResult(TypedDict):
+class PeriodicTaskResult(TypedDict):
     task_id: int
-    jobs: int
-    miss: int
-    max_rt: float
-    avg_rt: float
+    total_jobs_executed: int
+    total_deadline_misses: int
+    worst_case_response_time: float
+    average_response_time: float
 
 
-# ------------------------
-# TASK PERIODICO
-# ------------------------
+# ==========================================================
+# FUNZIONE TASK PERIODICO (PROCESSO SEPARATO)
+# ==========================================================
 
-def periodic_task(
+def periodic_real_time_task(
     task_id: int,
-    C: float,
-    T: float,
-    stop_event: Event,
-    result_queue: Queue[TaskResult],
+    execution_time_seconds: float,
+    period_seconds: float,
+    stop_signal: Event,
+    result_queue: Queue[PeriodicTaskResult],
 ) -> None:
+    """
+    Simula un task periodico real-time.
+
+    - execution_time_seconds (C): tempo di esecuzione simulato (busy wait)
+    - period_seconds (T): periodo del task
+    - stop_signal: evento per terminare l’esecuzione
+    - result_queue: coda per inviare i risultati al processo principale
+    """
 
     logging.info(
-        f"Task {task_id} START | C={C:.6f}s | T={T:.6f}s | U={C/T:.3f}"
+        f"Task {task_id} START | "
+        f"C={execution_time_seconds:.6f}s | "
+        f"T={period_seconds:.6f}s | "
+        f"U={execution_time_seconds / period_seconds:.3f}"
     )
 
-    next_release: float = time.perf_counter()
-    deadline_miss: int = 0
-    response_times: List[float] = []
-    jobs: int = 0
+    next_release_time: float = time.perf_counter()
+    total_deadline_misses: int = 0
+    response_time_samples: List[float] = []
+    total_jobs_executed: int = 0
 
-    while not stop_event.is_set():
+    # Loop principale del task periodico
+    while not stop_signal.is_set():
 
-        start: float = time.perf_counter()
+        job_start_time: float = time.perf_counter()
 
-        # Busy wait
-        while (time.perf_counter() - start) < C:
+        # Simulazione esecuzione reale tramite busy-wait
+        while (time.perf_counter() - job_start_time) < execution_time_seconds:
             pass
 
-        finish: float = time.perf_counter()
-        response_time: float = finish - next_release
-        response_times.append(response_time)
+        job_finish_time: float = time.perf_counter()
 
-        if response_time > T:
-            deadline_miss += 1
+        # Response time = tempo di completamento - release time atteso
+        response_time: float = job_finish_time - next_release_time
+        response_time_samples.append(response_time)
+
+        # Verifica deadline miss
+        if response_time > period_seconds:
+            total_deadline_misses += 1
             logging.warning(
-                f"Task {task_id} DEADLINE MISS | RT={response_time:.6f}s"
+                f"Task {task_id} DEADLINE MISS | "
+                f"RT={response_time:.6f}s"
             )
 
-        jobs += 1
+        total_jobs_executed += 1
 
-        if jobs % LOG_EVERY_N_JOBS == 0:
+        # Log di avanzamento
+        if total_jobs_executed % LOG_PROGRESS_EVERY_N_JOBS == 0:
             logging.info(
-                f"Task {task_id} progress | jobs={jobs} | "
-                f"miss={deadline_miss}"
+                f"Task {task_id} progress | "
+                f"jobs={total_jobs_executed} | "
+                f"miss={total_deadline_misses}"
             )
 
-        next_release += T
-        sleep_time: float = next_release - time.perf_counter()
+        # Calcolo prossimo rilascio periodico
+        next_release_time += period_seconds
+
+        sleep_time: float = next_release_time - time.perf_counter()
 
         if sleep_time > 0:
             time.sleep(sleep_time)
 
-    result: TaskResult = {
+    # Calcolo metriche finali del task
+    result: PeriodicTaskResult = {
         "task_id": task_id,
-        "jobs": jobs,
-        "miss": deadline_miss,
-        "max_rt": max(response_times) if response_times else 0.0,
-        "avg_rt": statistics.mean(response_times) if response_times else 0.0,
+        "total_jobs_executed": total_jobs_executed,
+        "total_deadline_misses": total_deadline_misses,
+        "worst_case_response_time": (
+            max(response_time_samples) if response_time_samples else 0.0
+        ),
+        "average_response_time": (
+            statistics.mean(response_time_samples)
+            if response_time_samples else 0.0
+        ),
     }
 
     logging.info(
-        f"Task {task_id} END | jobs={jobs} | miss={deadline_miss} | "
-        f"maxRT={result['max_rt']:.6f}"
+        f"Task {task_id} END | "
+        f"jobs={total_jobs_executed} | "
+        f"miss={total_deadline_misses} | "
+        f"WCRT={result['worst_case_response_time']:.6f}"
     )
 
     result_queue.put(result)
 
 
-# ------------------------
-# MAIN
-# ------------------------
+# ==========================================================
+# MAIN - CONTROLLO ESPERIMENTO
+# ==========================================================
 
 def main() -> None:
+    """
+    Funzione principale:
+    - Genera task set con DRS
+    - Avvia processi multipli
+    - Esegue simulazione per tempo prefissato
+    - Raccoglie e aggrega risultati
+    """
 
     logging.info("=== TEST START ===")
 
-    u: List[float] = drs(n=N_TASKS, sumu=TOTAL_UTIL)
+    # ------------------------------------------------------
+    # Generazione utilizzi tramite Dirichlet-Rescale (DRS)
+    # ------------------------------------------------------
 
-    T: List[float] = [random.uniform(0.05, 0.15) for _ in range(N_TASKS)]
-    C: List[float] = [u[i] * T[i] for i in range(N_TASKS)]
+    utilization_vector: List[float] = drs(
+        n=NUMBER_OF_TASKS,
+        sumu=TOTAL_CPU_UTILIZATION
+    )
 
-    logging.info("Generated task set:")
-    for i in range(N_TASKS):
-        logging.info(
-            f"Task {i} | U={u[i]:.3f} | T={T[i]:.6f} | C={C[i]:.6f}"
+    # Generazione periodi casuali
+    period_list_seconds: List[float] = [
+        random.uniform(0.05, 0.15)
+        for _ in range(NUMBER_OF_TASKS)
+    ]
+
+    # Calcolo execution time C_i = U_i * T_i
+    execution_time_list_seconds: List[float] = [
+        utilization_vector[i] * period_list_seconds[i]
+        for i in range(NUMBER_OF_TASKS)
+    ]
+
+    logging.info("Generated task set.")
+
+    # ------------------------------------------------------
+    # Creazione processi
+    # ------------------------------------------------------
+
+    stop_signal: Event = mp.Event()
+    result_queue: Queue[PeriodicTaskResult] = mp.Queue()
+    process_list: List[mp.Process] = []
+
+    for task_index in range(NUMBER_OF_TASKS):
+        process: mp.Process = mp.Process(
+            target=periodic_real_time_task,
+            args=(
+                task_index,
+                execution_time_list_seconds[task_index],
+                period_list_seconds[task_index],
+                stop_signal,
+                result_queue,
+            ),
+            name=f"TaskProcess-{task_index}",
         )
-
-    stop_event: Event = mp.Event()
-    result_queue: Queue[TaskResult] = mp.Queue()
-    processes: List[mp.Process] = []
-
-    for i in range(N_TASKS):
-        p: mp.Process = mp.Process(
-            target=periodic_task,
-            args=(i, C[i], T[i], stop_event, result_queue),
-            name=f"TaskProcess-{i}",
-        )
-        p.start()
-        processes.append(p)
+        process.start()
+        process_list.append(process)
 
     logging.info("All tasks started.")
-    time.sleep(SIMULATION_TIME)
+
+    # Esecuzione esperimento
+    time.sleep(SIMULATION_DURATION_SECONDS)
 
     logging.info("Stopping tasks...")
-    stop_event.set()
+    stop_signal.set()
 
-    for p in processes:
-        p.join()
+    for process in process_list:
+        process.join()
 
     logging.info("All tasks terminated.")
 
-    # ------------------------
-    # SOMMARIO FINALE
-    # ------------------------
+    # ------------------------------------------------------
+    # Aggregazione risultati globali
+    # ------------------------------------------------------
 
-    results: List[TaskResult] = []
+    collected_results: List[PeriodicTaskResult] = []
 
     while not result_queue.empty():
-        results.append(result_queue.get())
+        collected_results.append(result_queue.get())
 
-    total_jobs: int = sum(r["jobs"] for r in results)
-    total_miss: int = sum(r["miss"] for r in results)
-    max_wcrt: float = max((r["max_rt"] for r in results), default=0.0)
-    avg_wcrt: float = (
-        statistics.mean(r["avg_rt"] for r in results)
-        if results else 0.0
+    total_jobs: int = sum(r["total_jobs_executed"]
+                          for r in collected_results)
+
+    total_deadline_misses: int = sum(
+        r["total_deadline_misses"]
+        for r in collected_results
     )
 
-    print("\n===== RISULTATI FINALI =====")
-    print(f"Task totali: {N_TASKS}")
-    print(f"Utilizzazione totale: {TOTAL_UTIL}")
-    print(f"Job eseguiti: {total_jobs}")
-    print(f"Deadline miss totali: {total_miss}")
-    print(
-        f"Miss ratio: {total_miss / total_jobs:.4f}" if total_jobs else "Miss ratio: 0.0")
-    print(f"Worst-case response time globale: {max_wcrt:.6f} s")
-    print(f"Average response time medio: {avg_wcrt:.6f} s")
-    print("============================")
+    global_worst_case_response_time: float = max(
+        (r["worst_case_response_time"] for r in collected_results),
+        default=0.0,
+    )
 
+    global_average_response_time: float = (
+        statistics.mean(r["average_response_time"]
+                        for r in collected_results)
+        if collected_results else 0.0
+    )
+
+    # ------------------------------------------------------
+    # Stampa Sommario Finale
+    # ------------------------------------------------------
+
+    logging.info("\n===== FINAL SUMMARY =====")
+    logging.info(f"Number of tasks: {NUMBER_OF_TASKS}")
+    logging.info(f"Total CPU utilization: {TOTAL_CPU_UTILIZATION}")
+    logging.info(f"Total executed jobs: {total_jobs}")
+
+    if total_deadline_misses > 0:
+        logging.error(
+            f"Total deadline misses: {total_deadline_misses}"
+        )
+    else:
+        logging.info(
+            f"Total deadline misses: {total_deadline_misses}"
+        )
+
+    logging.info(
+        f"Miss ratio: "
+        f"{(total_deadline_misses / total_jobs):.4f}"
+        if total_jobs else "Miss ratio: 0.0"
+    )
+
+    logging.info(
+        f"Global worst-case response time: "
+        f"{global_worst_case_response_time:.6f} s"
+    )
+
+    logging.info(
+        f"Global average response time: "
+        f"{global_average_response_time:.6f} s"
+    )
+
+    logging.info("==========================")
     logging.info("=== TEST END ===")
 
 
